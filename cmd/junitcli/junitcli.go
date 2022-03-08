@@ -1,37 +1,39 @@
 package main
 
 import (
+	"encoding/xml"
 	"flag"
+	"io/ioutil"
 	"os"
 	"strings"
 
-	junit "github.com/joshdk/go-junit"
-
-	"github.com/olekukonko/tablewriter"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+
+	junit "github.com/iblancasa/junitcli/pkg/model"
 )
 
 const (
-	flagVerbose = "verbose"
+	flagVerbose    = "verbose"
+	flagSuiteName  = "suite-name"
+	flagShowReport = "report"
 )
 
-func readXML(xmlFileName string) ([]junit.Suite, error) {
-	logrus.Debugln("Reading file", xmlFileName)
-	return junit.IngestFile(xmlFileName)
-}
-
-func drawTable(suites []junit.Suite) {
-	table := tablewriter.NewWriter(os.Stdout)
-	table.SetHeader([]string{"Name", "Result"})
-
-	for _, testSuite := range suites {
-		for _, testCase := range testSuite.Tests {
-			table.Append([]string{testCase.Name, string(testCase.Status)})
-		}
+func readXML(xmlFileName string) (junit.TestSuites, error) {
+	bytes, err := ioutil.ReadFile(xmlFileName)
+	if err != nil {
+		return junit.TestSuites{}, err
 	}
-	table.Render()
+
+	var suites junit.TestSuites
+	err = xml.Unmarshal(bytes, &suites)
+
+	if err != nil {
+		return junit.TestSuites{}, err
+	}
+
+	return suites, nil
 }
 
 func initCmd() error {
@@ -40,6 +42,12 @@ func initCmd() error {
 
 	viper.SetDefault(flagVerbose, false)
 	flag.Bool(flagVerbose, false, "Enable verbose output")
+
+	viper.SetDefault(flagShowReport, false)
+	flag.Bool(flagShowReport, false, "Show table report")
+
+	viper.SetDefault(flagSuiteName, "")
+	flag.String(flagSuiteName, "", "Suite name to set (just applies if there is one suite)")
 
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
@@ -73,10 +81,26 @@ func main() {
 	}
 
 	suites, err := readXML(xmlFileName)
-
 	if err != nil {
-		logrus.Fatalln(err)
+		logrus.Fatalln("Error while reading the file ", xmlFileName, ":", err)
 	}
 
-	drawTable(suites)
+	suites.Sanitize()
+
+	// Change test suite name
+	if viper.GetString(flagSuiteName) != "" {
+		err = suites.SetTestSuiteName(viper.GetString(flagSuiteName))
+		if err != nil {
+			logrus.Fatalln(err)
+		}
+	}
+
+	// Show report
+	if viper.GetBool(flagShowReport) {
+		err = suites.DrawReport()
+		if err != nil {
+			logrus.Fatalln(err)
+		}
+	}
+
 }
