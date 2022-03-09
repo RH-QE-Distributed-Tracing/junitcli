@@ -21,25 +21,31 @@ type Failure struct {
 
 // TestCase from jUnit report
 type TestCase struct {
-	XMLName   xml.Name `xml:"testcase"`
-	ClassName string   `xml:"classname,attr"`
-	Name      string   `xml:"name,attr"`
-	Time      string   `xml:"time,attr"`
-	Failure   *Failure `xml:"failure,omitempty"`
+	XMLName    xml.Name `xml:"testcase"`
+	ClassName  string   `xml:"classname,attr"`
+	Name       string   `xml:"name,attr"`
+	Time       float64  `xml:"time,attr"`
+	Failure    *Failure `xml:"failure,omitempty"`
+	Timestamp  string   `xml:"timestam,attr"`
+	Assertions int      `xml:"assertions,attr"`
 }
 
 // TestSuites from jUnit report
 type TestSuites struct {
-	XMLName xml.Name    `xml:"testsuites"`
-	Suites  []TestSuite `xml:"testsuite"`
+	XMLName  xml.Name    `xml:"testsuites"`
+	Name     string      `xml:"name,attr"`
+	Failures int         `xml:"failures,attr"`
+	Time     float64     `xml:"time,attr"`
+	Tests    int         `xml:"tests,attr"`
+	Suites   []TestSuite `xml:"testsuite"`
 }
 
 // TestSuite from jUnit report
 type TestSuite struct {
 	XMLName   xml.Name   `xml:"testsuite"`
-	Tests     string     `xml:"tests,attr"`
-	Failures  string     `xml:"failures,attr"`
-	Time      string     `xml:"time,attr"`
+	Tests     int        `xml:"tests,attr"`
+	Failures  int        `xml:"failures,attr"`
+	Time      float64    `xml:"time,attr"`
 	Name      string     `xml:"name,attr"`
 	TestCases []TestCase `xml:"testcase"`
 }
@@ -75,11 +81,12 @@ func (suites *TestSuites) normalizeNames() {
 
 }
 
-// pruneTestCase removes the artifacts TestCase
-func (suites *TestSuites) pruneTestCase() {
+// pruneArtifactsTestCase removes the artifacts TestCase
+func (suites *TestSuites) pruneArtifactsTestCase() {
 	logrus.Debugln("Removing 'artifacts' TestCase")
 
 	var artifactsIndex int = -1
+	var totalTests int = 0
 	for i := 0; i < len(suites.Suites); i++ {
 		for j := 0; j < len(suites.Suites[i].TestCases); j++ {
 			if suites.Suites[i].TestCases[j].Name == "artifacts" {
@@ -95,19 +102,20 @@ func (suites *TestSuites) pruneTestCase() {
 			)
 
 			suites.Suites[i].TestCases = testCaseList
-			suites.Suites[i].Tests = fmt.Sprint(len(testCaseList))
+			suites.Suites[i].Tests = len(testCaseList)
 
 			artifactsIndex = -1
 			logrus.Debugln("Test case 'artifacts' removed!")
 		}
-
+		totalTests += suites.Suites[i].Tests
 	}
+	suites.Tests = totalTests
 }
 
 // Sanitize will clean the name of some of the tests and remove the artifacts
-// tests (which is created by KUTTL and does nothing)
+// test (which is created by KUTTL and does nothing)
 func (suites *TestSuites) Sanitize() {
-	suites.pruneTestCase()
+	suites.pruneArtifactsTestCase()
 	suites.normalizeNames()
 }
 
@@ -155,6 +163,11 @@ func (suites *TestSuites) SetTestSuiteName(newSuiteName string) error {
 	}
 
 	return nil
+}
+
+// Aggregate includes another suites under this one
+func (suites *TestSuites) Aggregate(anotherSuite *TestSuites) {
+	suites.Suites = append(suites.Suites, anotherSuite.Suites...)
 }
 
 // IsPassed returns true if there were not error with the tests

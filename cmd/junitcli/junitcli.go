@@ -5,6 +5,7 @@ import (
 	"flag"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/sirupsen/logrus"
@@ -17,11 +18,12 @@ import (
 const (
 	flagVerbose    = "verbose"
 	flagSuiteName  = "suite-name"
+	flagOutput     = "output"
 	flagShowReport = "report"
 )
 
-func readXML(xmlFileName string) (junit.TestSuites, error) {
-	bytes, err := ioutil.ReadFile(xmlFileName)
+func readXML(xmlPathName string) (junit.TestSuites, error) {
+	bytes, err := ioutil.ReadFile(xmlPathName)
 	if err != nil {
 		return junit.TestSuites{}, err
 	}
@@ -49,6 +51,9 @@ func initCmd() error {
 	viper.SetDefault(flagSuiteName, "")
 	flag.String(flagSuiteName, "", "Suite name to set (just applies if there is one suite)")
 
+	viper.SetDefault(flagOutput, "")
+	flag.String(flagOutput, "", "Output file")
+
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
 
@@ -70,28 +75,61 @@ func main() {
 		logrus.Fatalln(err)
 	}
 
-	xmlFileName := ""
+	xmlPathName := ""
 
 	switch flag.NArg() {
 	default:
 		flag.Usage()
 		os.Exit(1)
 	case 1:
-		xmlFileName = flag.Args()[0]
+		xmlPathName = flag.Args()[0]
 	}
 
-	suites, err := readXML(xmlFileName)
+	fileInfo, err := os.Stat(xmlPathName)
 	if err != nil {
-		logrus.Fatalln("Error while reading the file ", xmlFileName, ":", err)
+		logrus.Fatalln("Error while opening the jUnit reports: ", err)
 	}
 
-	suites.Sanitize()
+	var suites junit.TestSuites
 
-	// Change test suite name
-	if viper.GetString(flagSuiteName) != "" {
-		err = suites.SetTestSuiteName(viper.GetString(flagSuiteName))
+	if fileInfo.IsDir() {
+		err = filepath.Walk(xmlPathName,
+			func(path string, info os.FileInfo, err error) error {
+				if err != nil {
+					return err
+				}
+
+				if !strings.HasSuffix(path, ".xml") {
+					return nil
+				}
+
+				newSuites, err := readXML(path)
+				if err != nil {
+					return err
+				}
+
+				suites.Aggregate(&newSuites)
+
+				return nil
+			})
 		if err != nil {
 			logrus.Fatalln(err)
+		}
+		suites.Sanitize()
+	} else {
+		suites, err = readXML(xmlPathName)
+		if err != nil {
+			logrus.Fatalln("Error while reading the file ", xmlPathName, ":", err)
+		}
+
+		suites.Sanitize()
+
+		// Change test suite name
+		if viper.GetString(flagSuiteName) != "" {
+			err = suites.SetTestSuiteName(viper.GetString(flagSuiteName))
+			if err != nil {
+				logrus.Fatalln(err)
+			}
 		}
 	}
 
@@ -101,6 +139,16 @@ func main() {
 		if err != nil {
 			logrus.Fatalln(err)
 		}
+	}
+
+	outputFile := viper.GetString(flagOutput)
+	if outputFile != "" {
+		outputFileContent, err := xml.MarshalIndent(suites, "", "    ")
+		if err != nil {
+			logrus.Fatalln("There was a problem while creating the output file", err)
+		}
+
+		err = os.WriteFile(outputFile, outputFileContent, 0644)
 	}
 
 }
