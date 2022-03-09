@@ -115,7 +115,6 @@ func main() {
 		if err != nil {
 			logrus.Fatalln(err)
 		}
-		suites.Sanitize()
 	} else {
 		suites, err = readXML(xmlPathName)
 		if err != nil {
