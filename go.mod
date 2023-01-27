@@ -1,4 +1,4 @@
-module github.com/iblancasa/junitcli
+module github.com/RH-QE-Distributed-Tracing/junitcli
 
 go 1.17
 

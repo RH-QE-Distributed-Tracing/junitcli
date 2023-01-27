@@ -12,7 +12,7 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
-	junit "github.com/iblancasa/junitcli/pkg/model"
+	junit "github.com/RH-QE-Distributed-Tracing/junitcli/pkg/model"
 )
 
 const (
