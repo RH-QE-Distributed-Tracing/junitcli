@@ -76,6 +76,8 @@ func (suites *TestSuites) normalizeNames() {
 			logrus.Debugln(suites.Suites[i].TestCases[j].Name, "->", name)
 
 			suites.Suites[i].TestCases[j].Name = name
+			// Set a value to ensure the parsers can read it
+			suites.Suites[i].TestCases[j].ClassName ="test"
 		}
 	}
 

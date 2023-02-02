@@ -121,8 +121,6 @@ func main() {
 			logrus.Fatalln("Error while reading the file ", xmlPathName, ":", err)
 		}
 
-		suites.Sanitize()
-
 		// Change test suite name
 		if viper.GetString(flagSuiteName) != "" {
 			err = suites.SetTestSuiteName(viper.GetString(flagSuiteName))
@@ -131,6 +129,7 @@ func main() {
 			}
 		}
 	}
+	suites.Sanitize()
 
 	// Show report
 	if viper.GetBool(flagShowReport) {
