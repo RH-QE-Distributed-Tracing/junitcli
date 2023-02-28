@@ -26,7 +26,6 @@ type TestCase struct {
 	Name       string   `xml:"name,attr"`
 	Time       float64  `xml:"time,attr"`
 	Failure    *Failure `xml:"failure,omitempty"`
-	Timestamp  string   `xml:"timestamp,attr"`
 	Assertions int      `xml:"assertions,attr"`
 }
 
