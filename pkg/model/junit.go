@@ -67,6 +67,7 @@ func (suites *TestSuites) normalizeNames() {
 		for j := 0; j < len(suites.Suites[i].TestCases); j++ {
 			name := suites.Suites[i].TestCases[j].Name
 			name = strings.TrimSpace(name)
+			name = strings.ReplaceAll(name, "/", "_")
 			name = strings.ReplaceAll(name, " ", "_")
 			name = strings.ReplaceAll(name, "-", "_")
 			// Remove non alpha numeric characters
